@@ -7,7 +7,7 @@ This is an implementation for a mirrorlist server, inspired by https://github.co
 
 It's written from scratch, in Go with a minimalist approach.
 
-It consists of a frontend part `mirrorlist.go` and a backend part `mirrorlist_updater.go`
+It consists of a frontend part `mirrorlist.go` and a backend part `mirrorlist_updater.go`.
 Both share a common database backend. Currently, SQLite and MySQL/MariaDB are supported as backends.
 
 ## Database structure
@@ -30,7 +30,7 @@ mirror. This table is used in the mirror selection process to use the most up-to
 
 The backend process `mirrorlist_updater` runs perpetually. When the configurable re-scan interval is reached,
 the status of a repository is refreshed to check if it is reachable and up-to-date. This is done by retrieving
-the repomd.xml file from each yum-style repository, which holds timestamps in epoch format.
+the `repomd.xml` file from each yum-style repository, which holds timestamps in epoch format.
 (Example: http://mirror.centos.org/centos/8/BaseOS/x86_64/os/repodata/repomd.xml)
 
 The backend uses Go channels to determine which mirrors/repositories need to be checked, schedule them and
@@ -46,7 +46,7 @@ the list is narrowed down to nearby servers (based on the client's IP address). 
 
 The frontend offers multiple endpoints under the `/admin` path to allow cache, repository and mirror management.
 These endpoints follow a REST-style logic with HTTP methods such as POST (to create), PATCH (to modify) and
-DELETE (to remove) to manage objects.
+DELETE (to remove) to manage objects. See openapi.yaml for details.
 
 ## Configuration
 

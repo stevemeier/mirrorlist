@@ -1,0 +1,204 @@
+---
+openapi: "3.0.0"
+info:
+  version: 2020-12-28
+  title: Mirrorlist
+servers:
+  - url: http://localhost:8000/
+paths:
+
+  /:
+
+    parameters:
+      - name: arch
+        description: Architecture requested (e.g. x86_64)
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: release
+        description: Major release version requested (e.g. 8)
+        in: query
+        required: true
+        schema:
+          type: integer
+      - name: repo
+        description: Repository requested (e.g. os, updates, BaseOS, AppStream)
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: infra
+        description: Placeholder, currently unused
+        in: query
+        required: false
+        schema:
+          type: string
+
+    get:
+      summary: Retrieve mirrorlist
+      responses:
+        '200':
+          description: Repository and available mirrors found
+        '400':
+          description: Insufficient parameters
+        '404':
+          description: Repo not found or no mirrors available
+
+  /admin/cache:
+
+    get:
+      summary: Retrieve cache statistics
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Cache is disabled
+
+    delete:
+      summary: Clear the cache
+      responses:
+        '204':
+          description: Success
+        '404':
+          description: Cache is disabled
+
+  /admin/issues:
+
+    get:
+      summary: Retrieve mirror/repository issues
+      responses:
+        '200':
+          description: Success (returns an array of issues)
+        '204':
+          description: No issues found
+
+  /admin/location:
+
+    parameters:
+      - name: ip
+        description: IP address to lookup (IPv4 or IPv6)
+        in: query
+        required: true
+        schema:
+          type: string
+
+    get:
+      summary: Resolve IP address to location data
+      responses:
+        '200':
+          description: Lookup successful
+        '400':
+          description: Insufficient parameters
+        '500':
+          description: Failed to generate JSON response
+
+  /admin/mirrors:
+
+    get:
+      summary: Retrieve currently configured mirrors
+      responses:
+        '200':
+          description: Success (returns an array of mirrors)
+        '204':
+          description: Success (but no mirrors are configured)
+        '500':
+          description: An internal error ocurred while building the list of mirrors
+
+    post:
+      summary: Add a new mirror
+      responses:
+        '201':
+          description: Mirror created
+        '400':
+          description: Bad request. Malformed JSON input
+        '409':
+          description: Conflict. A mirror with this name already exists
+        '500':
+          description: An internal error ocurred while attempting to create the mirror
+
+  /admin/mirrors/{name}:
+
+    parameters:
+      - name: name
+        description: Hostname of the mirror
+        in: path
+        required: true
+        schema:
+          type: string
+
+    patch:
+      summary: Modify an existing mirror
+      responses:
+        '204':
+          description: Update successful
+        '400':
+          description: Bad request. Malformed JSON input
+        '404':
+          description: Mirror not found
+        '500':
+          description: An internal error ocurred while attempting to update the mirror
+
+    delete:
+      summary: Delete a mirror
+      responses:
+        '204':
+          description: Mirror deleted
+        '404':
+          description: Mirror not found
+        '500':
+          description: An internal error ocurred while attempting to delete the mirror
+
+  /admin/repos:
+
+    get:
+      summary: Retrieve currently configured repositories
+      responses:
+        '200':
+          description: Success (returns an array of repositories)
+        '204':
+          description: Success (but no repositories are configured)
+        '500':
+          description: An internal error ocurred while building the list of repositories
+
+    post:
+      summary: Add a new repository
+      responses:
+        '201':
+          description: Repository created
+        '400':
+          description: Bad request. Malformed JSON input
+        '500':
+          description: An internal error ocurred while attempting to create the repository
+
+  /admin/repos/{id}:
+
+    parameters:
+      - name: id
+        description: ID of the repository
+        in: path
+        required: true
+        schema:
+          type: integer
+
+    patch:
+      summary: Modify an existing repository
+      responses:
+        '204':
+          description: Update successful
+        '400':
+          description: Bad request. Malformed JSON input
+        '404':
+          description: Repository not found
+        '500':
+          description: An internal error ocurred while attempting to update the repository
+
+    delete:
+      summary: Delete a repository
+      responses:
+        '204':
+          description: Repository deleted
+        '404':
+          description: Repository not found
+        '500':
+          description: An internal error ocurred while attempting to delete the repository

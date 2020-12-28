@@ -51,6 +51,7 @@ func main() {
 
   // Open the GeoLite database
   log.Println("Opening GEO database")
+  // FIXME: This path should be configurable
   geodb, err = geoip2.Open("GeoLite2-City.mmdb")
   if err != nil {
     log.Fatal(err)
@@ -876,11 +877,13 @@ func http_handler_issues (ctx *fasthttp.RequestCtx) {
     for rows2.Next() {
       _ = rows2.Scan(&result, &count)
       switch result {
-        case 0:
+        case -1:
+          issue.Errors["Host not found"] = count
+        case -2:
           issue.Errors["Connection timeout"] = count
-	case -1:
-          issue.Errors["Failed to download repomd.xml"] = count
-	case -2:
+	case -3:
+          issue.Errors["Unknown connection error"] = count
+	case -4:
           issue.Errors["Failed to parse repomd.xml"] = count
         default:
           issue.Errors[fasthttp.StatusMessage(result)] = count

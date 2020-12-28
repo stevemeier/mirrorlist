@@ -211,7 +211,13 @@ func repository_timestamp (url string) (int64, int) {
 
   // https://stackoverflow.com/a/42718113
   if err != nil {
-    return 0, -1
+    nosuchhost, _ := regexp.MatchString(`no such host`, err.Error())
+    timeout, _ := regexp.MatchString(`deadline exceeded`, err.Error())
+
+    if nosuchhost { return 0, -1}
+    if timeout { return 0, -2}
+
+    return 0, -3
   }
   defer resp.Body.Close()
 
@@ -228,7 +234,7 @@ func repository_timestamp (url string) (int64, int) {
       return timestampint, resp.StatusCode
     }
   } else {
-    return 0, -2
+    return 0, -4
   }
 
   return 0, resp.StatusCode

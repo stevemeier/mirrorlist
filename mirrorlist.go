@@ -49,16 +49,6 @@ var caching bool
 func main() {
   var err error
 
-  // Open the GeoLite database
-  log.Println("Opening GEO database")
-  // FIXME: This path should be configurable
-  geodb, err = geoip2.Open("GeoLite2-City.mmdb")
-  if err != nil {
-    log.Fatal(err)
-  }
-  defer geodb.Close()
-  check_geodb_age()
-
   // Read config, file does not have to exists. YAML and JSON are supported
   log.Printf("Configuration file is %s\n", lib.Config_path(`mirrorlist.conf`))
   cfg, loaded := lib.Load_config(lib.Config_path(`mirrorlist.conf`))
@@ -67,6 +57,17 @@ func main() {
   } else {
     log.Println("No configuration loaded, using defaults")
   }
+
+  // Open the GeoLite database
+  geodbfile := cfg.UString(`geo-database.file`,`GeoLite2-City.mmdb`)
+  log.Printf("Opening GEO database %s\n", geodbfile)
+  geodb, err = geoip2.Open(geodbfile)
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer geodb.Close()
+  check_geodb_age()
+
 
   // Configure list size (number of mirrors in each response)
   listsize = cfg.UInt(`frontend.results`, 10)

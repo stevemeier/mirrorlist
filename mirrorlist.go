@@ -60,7 +60,13 @@ func main() {
   check_geodb_age()
 
   // Read config, file does not have to exists. YAML and JSON are supported
-  cfg := lib.Load_config(lib.Config_path(`mirrorlist.conf`))
+  log.Printf("Configuration file is %s\n", lib.Config_path(`mirrorlist.conf`))
+  cfg, loaded := lib.Load_config(lib.Config_path(`mirrorlist.conf`))
+  if loaded {
+    log.Println("Successfully loaded configuration")
+  } else {
+    log.Println("No configuration loaded, using defaults")
+  }
 
   // Configure list size (number of mirrors in each response)
   listsize = cfg.UInt(`frontend.results`, 10)
@@ -454,6 +460,11 @@ func http_handler_repo_get (ctx *fasthttp.RequestCtx) {
     return
   }
 
+  if len(all) == 0 {
+    ctx.SetStatusCode(http.StatusNoContent)
+    return
+  }
+
   result, jsonerr := json.Marshal(all)
   if jsonerr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
@@ -471,6 +482,11 @@ func http_handler_mirror_get (ctx *fasthttp.RequestCtx) {
   if err != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
     ctx.Write([]byte(err.Error()))
+    return
+  }
+
+  if len(all) == 0 {
+    ctx.SetStatusCode(http.StatusNoContent)
     return
   }
 
@@ -891,6 +907,12 @@ func http_handler_issues (ctx *fasthttp.RequestCtx) {
     }
 
     issues = append(issues, issue)
+  }
+
+  // Return 204 No Content if no issues are found
+  if len(issues) == 0 {
+    ctx.SetStatusCode(http.StatusNoContent)
+    return
   }
 
   result, err := json.Marshal(issues)

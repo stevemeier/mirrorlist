@@ -23,7 +23,12 @@ func main() {
   taskchan := make(chan lib.CheckTask, 20)
 
   // Read config, file does not have to exists. YAML and JSON are supported
-  cfg := lib.Load_config(lib.Config_path(`mirrorlist_updater.conf`))
+  cfg, loaded := lib.Load_config(lib.Config_path(`mirrorlist_updater.conf`))
+  if loaded {
+    log.Println("Successfully loaded configuration")
+  } else {
+    log.Println("No configuration loaded, using defaults")
+  }
 
   // Set re-scan interval
   rescan = cfg.UInt(`backend.rescan-interval`, 7200)

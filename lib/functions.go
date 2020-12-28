@@ -2,6 +2,7 @@ package lib
 
 import "fmt"
 import "net"
+import "os"
 import "github.com/jmoiron/sqlx"
 import "github.com/DavidGamba/go-getoptions"
 import config "github.com/olebedev/config"
@@ -97,30 +98,33 @@ func Build_DSN (cfg *config.Config) (string, string) {
 }
 
 func Config_path (input string) (string) {
-  var configpath string
+  var configpath string = input
 
   opt := getoptions.New()
   opt.StringVar(&configpath, "config", input)
+  _, err := opt.Parse(os.Args[1:])
+
+  if err != nil { return input }
 
   return configpath
 }
 
-func Load_config (path string) (*config.Config) {
+func Load_config (path string) (*config.Config, bool) {
   var cfg *config.Config
   var err error
   cfg, err = config.ParseJsonFile(path)
   if err == nil {
-    return cfg
+    return cfg, true
   }
 
   cfg, err = config.ParseYamlFile(path)
   if err == nil {
-    return cfg
+    return cfg, true
   }
 
   // Return a blank configuration as default
   cfg, _ = config.ParseJson(`{}`)
-  return cfg
+  return cfg, false
 }
 
 func Bool_to_int (input bool) (int) {

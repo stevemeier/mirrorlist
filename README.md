@@ -64,6 +64,26 @@ To build this software (using `make`) you need a recent version of Go (tested wi
 The location matching uses data from MaxMind's GeoLite2 database (see https://dev.maxmind.com/geoip/geoip2/geolite2/).
 Due to its license, the file `GeoLite2-City.mmdb` is not included in this repository. Get your own copy :-)
 
+## Performance
+
+The results below come from using `siege` on a 2-core KVM VM on a Ryzen 5 system.
+
+```
+{	"transactions":			      199646,
+	"availability":			      100.00,
+	"elapsed_time":			       29.98,
+	"data_transferred":		      108.86,
+	"response_time":		        0.00,
+	"transaction_rate":		     6659.31,
+	"throughput":			        3.63,
+	"concurrency":			       24.80,
+	"successful_transactions":	      199646,
+	"failed_transactions":		           0,
+	"longest_transaction":		        0.33,
+	"shortest_transaction":		        0.00
+}
+```
+
 ## Status
 
 While this software works, it is still under development and should be considered BETA. PRs are welcome.

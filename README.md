@@ -7,7 +7,7 @@ This is an implementation for a mirrorlist server, inspired by https://github.co
 
 It's written from scratch, in Go with a minimalist approach.
 
-It consists of a frontend part `mirrorlist.go` and a backend part `mirrorlist_updater.go`
+It consists of a frontend part `mirrorlist.go` and a backend part `mirrorlist_updater.go`.
 Both share a common database backend. Currently, SQLite and MySQL/MariaDB are supported as backends.
 
 ## Database structure
@@ -30,7 +30,7 @@ mirror. This table is used in the mirror selection process to use the most up-to
 
 The backend process `mirrorlist_updater` runs perpetually. When the configurable re-scan interval is reached,
 the status of a repository is refreshed to check if it is reachable and up-to-date. This is done by retrieving
-the repomd.xml file from each yum-style repository, which holds timestamps in epoch format.
+the `repomd.xml` file from each yum-style repository, which holds timestamps in epoch format.
 (Example: http://mirror.centos.org/centos/8/BaseOS/x86_64/os/repodata/repomd.xml)
 
 The backend uses Go channels to determine which mirrors/repositories need to be checked, schedule them and
@@ -46,7 +46,7 @@ the list is narrowed down to nearby servers (based on the client's IP address). 
 
 The frontend offers multiple endpoints under the `/admin` path to allow cache, repository and mirror management.
 These endpoints follow a REST-style logic with HTTP methods such as POST (to create), PATCH (to modify) and
-DELETE (to remove) to manage objects.
+DELETE (to remove) to manage objects. See openapi.yaml for details.
 
 ## Configuration
 
@@ -63,6 +63,26 @@ To build this software (using `make`) you need a recent version of Go (tested wi
 
 The location matching uses data from MaxMind's GeoLite2 database (see https://dev.maxmind.com/geoip/geoip2/geolite2/).
 Due to its license, the file `GeoLite2-City.mmdb` is not included in this repository. Get your own copy :-)
+
+## Performance
+
+The results below come from using `siege` on a 2-core KVM VM on a Ryzen 5 system.
+
+```
+{	"transactions":			      199646,
+	"availability":			      100.00,
+	"elapsed_time":			       29.98,
+	"data_transferred":		      108.86,
+	"response_time":		        0.00,
+	"transaction_rate":		     6659.31,
+	"throughput":			        3.63,
+	"concurrency":			       24.80,
+	"successful_transactions":	      199646,
+	"failed_transactions":		           0,
+	"longest_transaction":		        0.33,
+	"shortest_transaction":		        0.00
+}
+```
 
 ## Status
 

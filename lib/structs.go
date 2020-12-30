@@ -2,11 +2,12 @@ package lib
 
 type Location struct {
         Known           bool
-        Continent       string
-        Country         string
-        Region          string
-        Longitude       float64
-        Latitude        float64
+	Continent       string		// One of: AF, AN, AS, EU, NA, OC, SA
+					// https://dev.maxmind.com/geoip/geoip2/geoip2-city-country-csv-databases/
+        Country         string		// ISO 3166-1 Code
+        Region          string		// ISO 3166-2 Code Subdivision (US state, Canadian province, etc.)
+        Longitude       float64		// Currently unused
+        Latitude        float64		// Currently unused
 }
 
 type Repo struct {

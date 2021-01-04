@@ -832,16 +832,10 @@ func get_repo_id (release string, repo string, arch string) (int, string, bool) 
 
   stmt1, _ := mirrordb.Prepare(`SELECT repo_id, path, is_altarch FROM repos WHERE enabled > 0 AND major_release = ? AND name = ? AND arch = ?`)
 
-  // FIXME: QueryRow should suffice
-  rows, err := stmt1.Query(release, repo, arch)
-  if err != nil {
-    log.Println(err)
-    return -1, ``, false
-  }
-  defer rows.Close()
+  row := stmt1.QueryRow(release, repo, arch)
+  err := row.Scan(&repoid, &repopath, &is_altarch)
 
-  rows.Next()
-  _ = rows.Scan(&repoid, &repopath, &is_altarch)
+  if err != nil { return -1, ``, false }
   return repoid, repopath, is_altarch
 }
 

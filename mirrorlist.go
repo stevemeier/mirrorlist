@@ -221,7 +221,7 @@ func http_handler_root (ctx *fasthttp.RequestCtx) {
 
   // Set headers (configured in frontend.headers)
   for header, value := range(headers) {
-    ctx.Response.Header.Set(header, convert_interface(value))
+    ctx.Response.Header.Set(header, value)
   }
 
   // Check for required parameters
@@ -907,10 +907,7 @@ func full_mirror_urls (mirrors []int, release string, repo string, arch string, 
   }
 
   // Duplicate slashes are possible, let's get rid of those
-  // FIXME: This turns http:// into http:/
-  // Should probably match \w before // (does not include `:`)
-//  multislash := regexp.MustCompile(`\/+`)
-//  result = multislash.ReplaceAllString(result, `/`)
+  // Match \w before // (does not include `:`)
   multislash := regexp.MustCompile(`(\w)\/+`)
   result = multislash.ReplaceAllString(result, "$1/")
 

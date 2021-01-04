@@ -180,19 +180,22 @@ func http_handler_location (ctx *fasthttp.RequestCtx) {
 
   if ip == `` {
     ctx.SetStatusCode(http.StatusBadRequest)
-    ctx.Write([]byte("Parameter \"ip\" not set"))
+    _, werr := ctx.Write([]byte("Parameter \"ip\" not set"))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
   result, err := json.Marshal(get_ip_location(ip))
   if err != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(err.Error()))
+    _, werr := ctx.Write([]byte(err.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
   ctx.Response.Header.Set("Content-Type", "application/json")
-  ctx.Write(result)
+  _, werr := ctx.Write(result)
+  if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
 }
 
 func http_handler_root (ctx *fasthttp.RequestCtx) {
@@ -209,6 +212,7 @@ func http_handler_root (ctx *fasthttp.RequestCtx) {
   ipversion := lib.IPversion(clientip)
 
   // Set headers
+  // FIXME: This should be configurable (frontend.headers)
   ctx.Response.Header.Set("X-Frame-Options", "SAMEORIGIN")
   ctx.Response.Header.Set("X-Xss-Protection", "1; mode=block")
   ctx.Response.Header.Set("X-Content-Type-Options", "nosniff")
@@ -220,7 +224,8 @@ func http_handler_root (ctx *fasthttp.RequestCtx) {
   for _, key := range []string{"arch", "release", "repo"} {
     if (string(ctx.QueryArgs().Peek(key)) == "") {
       ctx.SetStatusCode(http.StatusBadRequest)
-      ctx.Write([]byte(fmt.Sprintf("%s not specified\n", key)))
+      _, werr := ctx.Write([]byte(fmt.Sprintf("%s not specified\n", key)))
+      if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
       return
     }
   }
@@ -233,7 +238,8 @@ func http_handler_root (ctx *fasthttp.RequestCtx) {
   // repoid is an auto_increment field, so its value is at least 1
   if repoid <= 0 {
     ctx.SetStatusCode(http.StatusNotFound)
-    ctx.Write([]byte("Invalid release/repo/arch combination\n"))
+    _, werr := ctx.Write([]byte("Invalid release/repo/arch combination\n"))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -250,7 +256,8 @@ func http_handler_root (ctx *fasthttp.RequestCtx) {
     ctx.Response.Header.Set("X-Cache-Hit", strconv.FormatBool(cachehit == nil))
     if cachehit == nil {
       ctx.Response.Header.Set("X-Processing-Time", time.Since(start).String() )
-      ctx.Write(response)
+      _, werr := ctx.Write(response)
+      if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
       return
     }
   }
@@ -281,10 +288,15 @@ func http_handler_root (ctx *fasthttp.RequestCtx) {
 
   // Write out server list
   // This takes the mirror list ([]int) and the repository information and builds full URLs
-  response := full_mirror_urls(mirrors, repopath, string(ctx.QueryArgs().Peek("repo")), string(ctx.QueryArgs().Peek("arch")), is_altarch )
+  response := full_mirror_urls(mirrors,
+                               repopath,
+			       string(ctx.QueryArgs().Peek("repo")),
+			       string(ctx.QueryArgs().Peek("arch")),
+			       is_altarch)
 
   // Send response to client
-  ctx.Write(response)
+  _, werr := ctx.Write(response)
+  if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
 
   // Add response to cache, if enabled
   // Empty responses are possible, but we don't cache them because they are not useful
@@ -367,13 +379,15 @@ func http_handler_cache_get (ctx *fasthttp.RequestCtx) {
   result, err := json.Marshal(&cs)
   if err != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(err.Error()))
+    _, werr := ctx.Write([]byte(err.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
   ctx.SetStatusCode(http.StatusOK)
   ctx.Response.Header.Set("Content-Type", "application/json")
-  ctx.Write(result)
+  _, werr := ctx.Write(result)
+  if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
 }
 
 func http_handler_mirror_patch (ctx *fasthttp.RequestCtx) {
@@ -394,24 +408,27 @@ func http_handler_mirror_patch (ctx *fasthttp.RequestCtx) {
   }
 
   // Begin transaction to make one or possibly multiple changes
-  tx, beginerr := mirrordb.Begin()
-  if beginerr != nil {
+  tx, txerr := mirrordb.Begin()
+  if txerr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(beginerr.Error()))
+    _, werr := ctx.Write([]byte(txerr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
   // Iterate over the map created from the POST'ed content and
   // run one UPDATE statement per key
   for column, value := range changes {
-    tx.Exec("UPDATE mirrors SET "+column+" = "+convert_interface(value)+" WHERE mirror_id = "+strconv.Itoa(mirror_id))
+    _, txerr = tx.Exec("UPDATE mirrors SET "+column+" = "+convert_interface(value)+" WHERE mirror_id = "+strconv.Itoa(mirror_id))
+    if txerr != nil { log.Println("UPDATE to mirrors table failed") }
   }
 
   // Commit transaction and check for success
-  commiterr := tx.Commit()
-  if commiterr != nil {
+  txerr = tx.Commit()
+  if txerr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(commiterr.Error()))
+    _, werr := ctx.Write([]byte(txerr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -429,22 +446,26 @@ func http_handler_mirror_delete (ctx *fasthttp.RequestCtx) {
   }
 
   // Begin a transaction to clean everything in one move
-  tx, beginerr := mirrordb.Begin()
-  if beginerr != nil {
+  tx, txerr := mirrordb.Begin()
+  if txerr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(beginerr.Error()))
+    _, werr := ctx.Write([]byte(txerr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
   // Delete the mirror and its repository status
-  tx.Exec("DELETE FROM mirrors WHERE mirror_id = "+strconv.Itoa(mirror_id))
-  tx.Exec("DELETE FROM status WHERE mirror_id = "+strconv.Itoa(mirror_id))
+  _, txerr = tx.Exec("DELETE FROM mirrors WHERE mirror_id = "+strconv.Itoa(mirror_id))
+  if txerr != nil { log.Println("Failed to DELETE from mirrors table") }
+  _, txerr = tx.Exec("DELETE FROM status WHERE mirror_id = "+strconv.Itoa(mirror_id))
+  if txerr != nil { log.Println("Failed to DELETE from status table") }
 
   // Commit transaction and check for success
-  commiterr := tx.Commit()
-  if commiterr != nil {
+  txerr = tx.Commit()
+  if txerr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(commiterr.Error()))
+    _, werr := ctx.Write([]byte(txerr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -457,7 +478,8 @@ func http_handler_repo_get (ctx *fasthttp.RequestCtx) {
   all, err := repolist()
   if err != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(err.Error()))
+    _, werr := ctx.Write([]byte(err.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -469,20 +491,23 @@ func http_handler_repo_get (ctx *fasthttp.RequestCtx) {
   result, jsonerr := json.Marshal(all)
   if jsonerr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(jsonerr.Error()))
+    _, werr := ctx.Write([]byte(jsonerr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
   ctx.SetStatusCode(http.StatusOK)
   ctx.Response.Header.Set("Content-Type", "application/json")
-  ctx.Write(result)
+  _, werr := ctx.Write(result)
+  if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
 }
 
 func http_handler_mirror_get (ctx *fasthttp.RequestCtx) {
   all, err := mirrorlist()
   if err != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(err.Error()))
+    _, werr := ctx.Write([]byte(err.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -494,13 +519,15 @@ func http_handler_mirror_get (ctx *fasthttp.RequestCtx) {
   result, jsonerr := json.Marshal(all)
   if jsonerr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(jsonerr.Error()))
+    _, werr := ctx.Write([]byte(jsonerr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
   ctx.SetStatusCode(http.StatusOK)
   ctx.Response.Header.Set("Content-Type", "application/json")
-  ctx.Write(result)
+  _, werr := ctx.Write(result)
+  if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
 }
 
 func http_handler_repo_post (ctx *fasthttp.RequestCtx) {
@@ -509,7 +536,8 @@ func http_handler_repo_post (ctx *fasthttp.RequestCtx) {
   err := json.Unmarshal(ctx.PostBody(), &newrepo)
   if err != nil {
     ctx.SetStatusCode(http.StatusBadRequest)
-    ctx.Write([]byte(err.Error()))
+    _, werr := ctx.Write([]byte(err.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -519,7 +547,8 @@ func http_handler_repo_post (ctx *fasthttp.RequestCtx) {
      newrepo.Name == `` ||
      newrepo.Arch == `` {
     ctx.SetStatusCode(http.StatusBadRequest)
-    ctx.Write([]byte("Required parameters: release, path, name, arch"))
+    _, werr := ctx.Write([]byte("Required parameters: release, path, name, arch"))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -527,12 +556,20 @@ func http_handler_repo_post (ctx *fasthttp.RequestCtx) {
                                     (major_release, name, path, arch, is_altarch, enabled)
 	                            VALUES
 	 			    (?, ?, ?, ?, ?, ?)`)
+  if dberr != nil {
+    log.Printf("Prepare failed: %s\n", dberr.Error())
+    ctx.SetStatusCode(http.StatusInternalServerError)
+    _, werr := ctx.Write([]byte(dberr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
+  }
+
   // INSERT new repo into database
   _, dberr = stmt1.Exec(newrepo.MRelease, newrepo.Name, newrepo.Path, newrepo.Arch, newrepo.Altarch, newrepo.Enabled)
 
   if dberr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(dberr.Error()))
+    _, werr := ctx.Write([]byte(dberr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -551,10 +588,11 @@ func http_handler_repo_post (ctx *fasthttp.RequestCtx) {
   }
 
   // Start transaction to modify the `status` table
-  tx, beginerr := mirrordb.Begin()
-  if beginerr != nil {
+  tx, txerr := mirrordb.Begin()
+  if txerr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(beginerr.Error()))
+    _, werr := ctx.Write([]byte(txerr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -563,15 +601,17 @@ func http_handler_repo_post (ctx *fasthttp.RequestCtx) {
   for _, mirror := range mirrors {
     if (mirror.Basedir != `` && !newrepo.Altarch) ||
        (mirror.BasedirAlt != `` && newrepo.Altarch) {
-      tx.Exec("INSERT INTO status (mirror_id, repo_id, checked) VALUES ("+strconv.Itoa(mirror.ID)+","+strconv.Itoa(newrepo.ID)+",0)")
+      _, txerr = tx.Exec("INSERT INTO status (mirror_id, repo_id, checked) VALUES ("+strconv.Itoa(mirror.ID)+","+strconv.Itoa(newrepo.ID)+",0)")
+      if txerr != nil { log.Println("Failed to INSERT into status table") }
     }
   }
 
   // Commit transaction and check for success
-  commiterr := tx.Commit()
-  if commiterr != nil {
+  txerr = tx.Commit()
+  if txerr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(commiterr.Error()))
+    _, werr := ctx.Write([]byte(txerr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -605,24 +645,27 @@ func http_handler_repo_patch (ctx *fasthttp.RequestCtx) {
   }
 
   // Begin transaction to make one or possibly multiple changes
-  tx, beginerr := mirrordb.Begin()
-  if beginerr != nil {
+  tx, txerr := mirrordb.Begin()
+  if txerr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(beginerr.Error()))
+    _, werr := ctx.Write([]byte(txerr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
   // Iterate over the map created from the POST'ed content and
   // run one UPDATE statement per key
   for column, value := range changes {
-    tx.Exec("UPDATE repos SET "+column+" = "+convert_interface(value)+" WHERE repo_id = "+repo_id)
+    _, txerr = tx.Exec("UPDATE repos SET "+column+" = "+convert_interface(value)+" WHERE repo_id = "+repo_id)
+    if txerr != nil { log.Println("Failed to UPDATE repos table") }
   }
 
   // Commit transaction and check for success
-  commiterr := tx.Commit()
-  if commiterr != nil {
+  txerr = tx.Commit()
+  if txerr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(commiterr.Error()))
+    _, werr := ctx.Write([]byte(txerr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -648,22 +691,26 @@ func http_handler_repo_delete (ctx *fasthttp.RequestCtx) {
   }
 
   // Begin a transaction to clean everything in one move
-  tx, beginerr := mirrordb.Begin()
-  if beginerr != nil {
+  tx, txerr := mirrordb.Begin()
+  if txerr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(beginerr.Error()))
+    _, werr := ctx.Write([]byte(txerr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
   // Delete the mirror and its repository status
-  tx.Exec("DELETE FROM repos WHERE repo_id = "+repo_id)
-  tx.Exec("DELETE FROM status WHERE repo_id = "+repo_id)
+  _, txerr = tx.Exec("DELETE FROM repos WHERE repo_id = "+repo_id)
+  if txerr != nil { log.Println("Failed to DELETE from repos table") }
+  _, txerr = tx.Exec("DELETE FROM status WHERE repo_id = "+repo_id)
+  if txerr != nil { log.Println("Failed to DELETE from status table") }
 
   // Commit transaction and check for success
-  commiterr := tx.Commit()
-  if commiterr != nil {
+  txerr = tx.Commit()
+  if txerr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(commiterr.Error()))
+    _, werr := ctx.Write([]byte(txerr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -678,7 +725,8 @@ func http_handler_mirror_post (ctx *fasthttp.RequestCtx) {
   err := json.Unmarshal(ctx.PostBody(), &newmirror)
   if err != nil {
     ctx.SetStatusCode(http.StatusBadRequest)
-    ctx.Write([]byte(err.Error()))
+    _, werr := ctx.Write([]byte(err.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -686,7 +734,8 @@ func http_handler_mirror_post (ctx *fasthttp.RequestCtx) {
   // It's possible for a mirror to have both, basedir and basedir_altarch
   if (newmirror.Name == ``) || (newmirror.Basedir + newmirror.BasedirAlt == ``) {
     ctx.SetStatusCode(http.StatusBadRequest)
-    ctx.Write([]byte("Required parameters: name, basedir and/or basedir_altarch"))
+    _, werr := ctx.Write([]byte("Required parameters: name, basedir and/or basedir_altarch"))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -728,7 +777,8 @@ func http_handler_mirror_post (ctx *fasthttp.RequestCtx) {
   // As mirror_id is an auto_increment field, its value should be at least 1
   if newmirror.ID <= 0 {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(err.Error()))
+    _, werr := ctx.Write([]byte(err.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -738,10 +788,11 @@ func http_handler_mirror_post (ctx *fasthttp.RequestCtx) {
   repos, _ := repolist()
 
   // Begin transaction
-  tx, beginerr := mirrordb.Begin()
-  if beginerr != nil {
+  tx, txerr := mirrordb.Begin()
+  if txerr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(beginerr.Error()))
+    _, werr := ctx.Write([]byte(txerr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -749,15 +800,17 @@ func http_handler_mirror_post (ctx *fasthttp.RequestCtx) {
   for _, repo := range repos {
     if (newmirror.Basedir != `` && !repo.Altarch && repo.Enabled) ||
        (newmirror.BasedirAlt != `` && repo.Altarch && repo.Enabled) {
-      tx.Exec("INSERT INTO status (mirror_id, repo_id, checked) VALUES ("+strconv.Itoa(newmirror.ID)+","+strconv.Itoa(repo.ID)+",0)")
+      _, txerr = tx.Exec("INSERT INTO status (mirror_id, repo_id, checked) VALUES ("+strconv.Itoa(newmirror.ID)+","+strconv.Itoa(repo.ID)+",0)")
+      if txerr != nil { log.Println("Failed to INSERT into status table") }
     }
   }
 
   // Commit transaction
-  commiterr := tx.Commit()
-  if commiterr != nil {
+  txerr = tx.Commit()
+  if txerr != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(commiterr.Error()))
+    _, werr := ctx.Write([]byte(txerr.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
@@ -848,8 +901,12 @@ func full_mirror_urls (mirrors []int, release string, repo string, arch string, 
   }
 
   // Duplicate slashes are possible, let's get rid of those
-  multislash := regexp.MustCompile(`\/+`)
-  result = multislash.ReplaceAllString(result, `/`)
+  // FIXME: This turns http:// into http:/
+  // Should probably match \w before // (does not include `:`)
+//  multislash := regexp.MustCompile(`\/+`)
+//  result = multislash.ReplaceAllString(result, `/`)
+  multislash := regexp.MustCompile(`(\w)\/+`)
+  result = multislash.ReplaceAllString(result, "$1/")
 
   // fasthttp and freecache both prefer byte slices
   return []byte(result)
@@ -919,16 +976,18 @@ func http_handler_issues (ctx *fasthttp.RequestCtx) {
   result, err := json.Marshal(issues)
   if err != nil {
     ctx.SetStatusCode(http.StatusInternalServerError)
-    ctx.Write([]byte(err.Error()))
+    _, werr := ctx.Write([]byte(err.Error()))
+    if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
     return
   }
 
   ctx.Response.Header.Set("Content-Type", "application/json")
-  ctx.Write(result)
+  _, werr := ctx.Write(result)
+  if werr != nil { log.Printf("ctx.Write failed: %s\n", werr.Error()) }
 }
 
 func convert_interface (iface interface{}) (string) {
-    switch iface.(type) {
+  switch v := iface.(type) {
     case bool:
       if iface.(bool) { return "1" }
       if !iface.(bool) { return "0" }
@@ -936,9 +995,13 @@ func convert_interface (iface interface{}) (string) {
       return fmt.Sprintf("%f", iface.(float64))
     case string:
       return iface.(string)
+    default:
+      // without this, the linter complains about S1034
+      _ = v
+      return ``
   }
 
-  // nil and default
+  // should be unreachable
   return ``
 }
 

@@ -44,6 +44,7 @@ var rescache *freecache.Cache
 var listsize int
 var dbtype string
 var caching bool
+var headers map[string]string
 
 // Main
 func main() {
@@ -68,9 +69,16 @@ func main() {
   defer geodb.Close()
   check_geodb_age()
 
-
   // Configure list size (number of mirrors in each response)
   listsize = cfg.UInt(`frontend.results`, 10)
+
+  // Configure headers
+  headers = make(map[string]string)
+  headersmap, _ := cfg.Map(`frontend.headers`)
+  for k, v := range(headersmap) {
+    log.Printf("Setting header \"%s\" to \"%s\"\n", k, convert_interface(v))
+    headers[k] = convert_interface(v)
+  }
 
   // Build DSN from config
   driver, dsn := lib.Build_DSN(cfg)
@@ -211,12 +219,10 @@ func http_handler_root (ctx *fasthttp.RequestCtx) {
   // Determine IPv4 / IPv6
   ipversion := lib.IPversion(clientip)
 
-  // Set headers
-  // FIXME: This should be configurable (frontend.headers)
-  ctx.Response.Header.Set("X-Frame-Options", "SAMEORIGIN")
-  ctx.Response.Header.Set("X-Xss-Protection", "1; mode=block")
-  ctx.Response.Header.Set("X-Content-Type-Options", "nosniff")
-  ctx.Response.Header.Set("Referrer-Policy", "same-origin")
+  // Set headers (configured in frontend.headers)
+  for header, value := range(headers) {
+    ctx.Response.Header.Set(header, convert_interface(value))
+  }
 
   // Check for required parameters
   // The CentOS version always produces 200 OK

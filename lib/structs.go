@@ -33,7 +33,7 @@ type Mirror struct {
 	Basedir     string  `json:"basedir"`
 	BasedirAlt  string  `json:"basedir_altarch" db:"basedir_altarch"`
 	IPv4        int     `json:"ipv4" db:"ipv4"`
-	IPv6        int     `json:"ipv4" db:"ipv6"`
+	IPv6        int     `json:"ipv6" db:"ipv6"`
 	HTTP        int     `json:"http" db:"http"`
 	HTTPS       int     `json:"https" db:"https"`
 	Rsync       int     `json:"rsync" db:"rsync"`

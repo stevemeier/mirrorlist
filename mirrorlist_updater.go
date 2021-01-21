@@ -11,7 +11,7 @@ import "time"
 import _ "github.com/mattn/go-sqlite3"
 import "github.com/jmoiron/sqlx"
 
-import lib "./lib"
+import lib "github.com/stevemeier/mirrorlist/lib"
 
 var mirrordb *sqlx.DB
 var rescan int

@@ -33,7 +33,7 @@ import "github.com/valyala/fasthttp"
 import "github.com/fasthttp/router"
 
 // Custom structs and functions
-import lib "./lib"
+import lib "github.com/stevemeier/mirrorlist/lib"
 
 // Database and Cache handles are global
 var geodb *geoip2.Reader

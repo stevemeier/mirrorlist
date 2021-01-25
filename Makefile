@@ -1,3 +1,3 @@
 it:
-	go build mirrorlist_updater.go
-	go build mirrorlist.go
+	cd mirrorlist; go build
+	cd mirrorlist_updater; go build
